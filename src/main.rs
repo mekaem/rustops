@@ -5,22 +5,21 @@ use std::time::Instant;
 // Original IFMA implementation
 // 1. Inline Assembly Optimization (IFMA) - x86_64 only
 #[cfg(target_arch = "x86_64")]
+#[target_feature(enable = "avx512ifma")]
 unsafe fn ifma_multiply_add(a: u64, b: u64, c: u64) -> u128 {
     // This function demonstrates direct use of IFMA instructions
     // It requires unsafe code due to direct hardware interaction
-    let mut result_low: u64;
-    let mut result_high: u64;
+    let a = _mm_set_epi64x(0, a as i64);
+    let b = _mm_set_epi64x(0, b as i64);
+    let c = _mm_set_epi64x(0, c as i64);
 
-    std::arch::asm!(
-        "vpmadd52luq {0}, {2}, {3}",
-        "vpmadd52huq {1}, {2}, {3}",
-        inout(xmm_reg) c => result_low,
-        out(xmm_reg) result_high,
-        in(xmm_reg) a,
-        in(xmm_reg) b,
-    );
+    let low = _mm_madd52lo_epu64(c, a, b);
+    let high = _mm_madd52hi_epu64(_mm_setzero_si128(), a, b);
 
-    ((result_high as u128) << 64) | (result_low as u128)
+    let low = _mm_extract_epi64(low, 0) as u64;
+    let high = _mm_extract_epi64(high, 0) as u64;
+
+    ((high as u128) << 64) | (low as u128)
 }
 
 // 2. Compiler Optimization (64-bit)
@@ -155,19 +154,23 @@ fn main() {
     let c_64 = 0x1111111111111111;
 
     #[cfg(target_arch = "x86_64")]
-    if std::is_x86_feature_detected!("avx512ifma") {
-        benchmark(|a, b, c| unsafe { ifma_multiply_add(a, b, c) }, "IFMA (64-bit)", a_64, b_64, c_64, iterations);
-    } else {
-        println!("IFMA not supported on this CPU.");
+    {
+        if std::is_x86_feature_detected!("avx512ifma") {
+            benchmark(|a, b, c| unsafe { ifma_multiply_add(a, b, c) }, "IFMA (AVX-512) (64-bit)", a_64, b_64, c_64, iterations);
+        } else {
+            println!("AVX-512 IFMA not supported on this CPU.");
+        }
     }
 
     benchmark(compiler_optimized_multiply_add, "Compiler Optimized (64-bit)", a_64, b_64, c_64, iterations);
 
     #[cfg(target_arch = "x86_64")]
-    if std::is_x86_feature_detected!("avx2") {
-        benchmark(|a, b, c| unsafe { simd_multiply_add(a, b, c) }, "SIMD (AVX2) (64-bit)", a_64, b_64, c_64, iterations);
-    } else {
-        println!("AVX2 not supported on this CPU.");
+    {
+        if std::is_x86_feature_detected!("avx2") {
+            benchmark(|a, b, c| unsafe { simd_multiply_add(a, b, c) }, "SIMD (AVX2) (64-bit)", a_64, b_64, c_64, iterations);
+        } else {
+            println!("AVX2 not supported on this CPU.");
+        }
     }
 
     benchmark(karatsuba_multiply_add, "Karatsuba (64-bit)", a_64, b_64, c_64, iterations);
