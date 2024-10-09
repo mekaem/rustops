@@ -8,14 +8,19 @@ use std::time::Instant;
 unsafe fn ifma_multiply_add(a: u64, b: u64, c: u64) -> u128 {
     // This function demonstrates direct use of IFMA instructions
     // It requires unsafe code due to direct hardware interaction
-    let result: u128;
+    let mut result_low: u64;
+    let mut result_high: u64;
+
     std::arch::asm!(
-        "vpmadd52luq {0}, {1}, {2}",
+        "vpmadd52luq {0}, {2}, {3}",
+        "vpmadd52huq {1}, {2}, {3}",
+        inout(xmm_reg) c => result_low,
+        out(xmm_reg) result_high,
         in(xmm_reg) a,
         in(xmm_reg) b,
-        inout(xmm_reg) c => result,
     );
-    result
+
+    ((result_high as u128) << 64) | (result_low as u128)
 }
 
 // 2. Compiler Optimization (64-bit)
