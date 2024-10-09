@@ -3,6 +3,12 @@ name = "rustops"
 version = "0.1.0"
 edition = "2021"
 
+[build]
+rustflags = ["-C", "target-cpu=native"]
+
+[toolchain]
+channel = "nightly"
+
 [dependencies]
 ed25519-dalek = "1.0"
 rand = "0.7"

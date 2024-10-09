@@ -197,4 +197,6 @@ fn main() {
     let message: &[u8] = b"Optimize without unsafe.";
     let signature = keypair.sign(message);
     println!("Ed25519 Signature: {:?}", signature.to_bytes());
+
+    println!("Benchmarks completed.");
 }
